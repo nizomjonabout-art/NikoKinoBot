@@ -1,5 +1,7 @@
 import json
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -1015,10 +1017,42 @@ async def error_handler(update, context):
 
 
 # ==================================================
+# RENDER WEB PORT (health check)
+# ==================================================
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b"Niko KinoUz bot is running")
+
+    def log_message(self, format, *args):
+        # Keep routine health checks out of the logs
+        return
+
+
+def start_health_server():
+    port = int(os.environ.get("PORT", "10000"))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    print(f"🌐 Render health server portda ishga tushdi: {port}")
+    server.serve_forever()
+
+
+# ==================================================
 # MAIN
 # ==================================================
 
 def main():
+
+    if not BOT_TOKEN:
+        raise RuntimeError(
+            "BOT_TOKEN topilmadi. Render Environment bo‘limida BOT_TOKEN "
+            "o‘zgaruvchisini kiriting."
+        )
+
+    # Render Web Service uchun HTTP portni alohida thread'da ochamiz.
+    threading.Thread(target=start_health_server, daemon=True).start()
 
     app = Application.builder().token(BOT_TOKEN).build()
 
